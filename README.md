@@ -7,9 +7,10 @@
 - **多格式圖片支援**：JPG、PNG、BMP、TIFF（含多頁）、WebP、AVIF
 - **多策略掃描引擎**：全圖掃描 + 自適應放大掃描 + 形態學區域偵測 + 多閥值二值化，自動合併去重
 - **廣泛條碼格式支援**（基於 zxing-cpp）：
-  - 1D：EAN-8/13、UPC-A/E、Code 39/93/128、ITF、Codabar
+  - 1D：EAN-8/13、UPC-A/E、Code 39/93/128、ITF/ITF-14、Codabar
   - 2D：QR Code、Data Matrix、PDF417、Aztec Code、MaxiCode
-  - GS1 DataBar 家族
+  - GS1 DataBar 家族（Omni、Limited、Expanded、Stacked）
+  - 不支援：Code 11、Pharmacode、MSI、Plessey、JapanPost、OneCode、Postnet、Royal Mail、KIX、AusPost 等
 - **現代化深色主題 UI**：無邊框視窗、拖曳上傳、即時狀態指示
 - **一鍵複製**：掃描結果直接複製到剪貼簿
 - **多頁 TIFF**：自動逐頁掃描，每頁獨立標註頁碼
@@ -109,6 +110,11 @@ barcode_reader/
 | [pywebview](https://github.com/r0x0r/pywebview) | 桌面端 Web UI 橋接 |
 | [pillow](https://python-pillow.org/) | AVIF 格式讀取支援 |
 | [pillow-avif-plugin](https://github.com/nicedouble/pillow-avif-plugin) | Pillow 的 AVIF codec |
+
+## 已知限制
+
+- **低解析度圖片的 1D 條碼**：當圖片短邊 < 500px 且包含多個條碼（如條碼種類參考圖），1D 條碼的最細線條可能只有 1-2 像素，經 JPEG 壓縮後無法重建，此為物理限制
+- **不支援的條碼格式**：Code 11、Pharmacode、MSI、Plessey、JapanPost、Intelligent Mail (OneCode)、Postnet、Royal Mail、KIX、AusPost 等格式不在 zxing-cpp 支援範圍內
 
 ## 授權
 
