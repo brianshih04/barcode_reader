@@ -1,0 +1,92 @@
+我們將開發分為五個階段，並詳細規劃 UI 的佈局與核心引擎的職責。
+
+系統架構藍圖
+前端 (View)：HTML5 + CSS3 (推薦使用 Tailwind CSS) + Vanilla JS。
+
+橋接層 (Controller)：pywebview (負責啟動視窗並建立 JS 與 Python 互相呼叫的 API)。
+
+後端引擎 (Model)：Python (opencv-python 負責影像讀取與預處理，zxing-cpp 負責高效解碼)。
+
+打包工具：PyInstaller (將 Python 與 HTML 資源打包成 .exe 與 .app 執行檔)。
+
+📅 開發階段計畫 (Phases)
+Phase 1: 核心引擎開發 (Backend Engine)
+目標： 建立一個能穩定吃下各種圖片格式並回傳精準結果的 Python 類別，先在終端機 (CLI) 驗證成功。
+
+環境建置：建立 Python 虛擬環境，安裝 zxing-cpp, opencv-python, numpy。
+
+實作 ScannerEngine 類別：
+
+撰寫 load_image(file_path)：使用 OpenCV 讀取 JPG, PNG, BMP, TIFF (包含多頁 TIFF 處理邏輯)。
+
+撰寫預處理邏輯：轉為灰階 (cv2.cvtColor)，若針對 TIFF/BMP 辨識率不佳，可預留二值化 (cv2.threshold) 或去雜訊的擴充點。
+
+撰寫 decode(image_matrix)：呼叫 zxingcpp.read_barcodes，開啟 TryHarder 模式以提升模糊掃描檔的讀取率。
+
+定義資料結構：將解碼結果統整為 JSON 格式 (包含：status, format, text, time_taken_ms)，方便後續傳遞給前端。
+
+Phase 2: UI / UX 規劃與前端開發 (Frontend UI)
+目標： 刻出一個現代化、無外框感且直覺的桌面應用介面。
+
+UI 佈局規劃 (單頁面設計 Single Page Application)：
+
+頂部標題列：軟體名稱與自訂的關閉/最小化按鈕 (讓 pywebview 隱藏原生系統視窗，看起來更現代)。
+
+左側 / 上方：操作區 (Drop Zone)
+
+一個巨大的「拖曳上傳區 (Drag & Drop)」，提示文字：「拖曳 JPG/PNG/BMP/TIFF 檔案至此，或點擊選擇檔案」。
+
+進階設定面板 (可折疊)：包含「開啟深度掃描 (Try Harder)」切換開關、「自動影像強化」切換開關。
+
+右側 / 下方：結果區 (Results Panel)
+
+狀態指示器：顯示「等待輸入」、「掃描中...」、「完成」或「無法辨識」。
+
+結果列表：使用表格或卡片顯示掃描結果。
+
+欄位：預覽小圖、條碼類型 (如 QR Code, Code 128)、解碼內容 (附帶「一鍵複製」按鈕)。
+
+Phase 3: 前後端橋接整合 (Bridge via pywebview)
+目標： 讓網頁前端的按鈕與拖曳事件，能夠真實驅動 Python 引擎。
+
+實作 Api 橋接類別：在 Python 中建立一個 Api 類別，將 ScannerEngine 實例化。
+
+開放 scan_file(file_path) 方法：接收來自前端的本機檔案路徑。
+
+前端事件綁定：
+
+攔截 HTML 的 drop 事件，取得檔案的絕對路徑 (HTML5 File API 在 Electron/Webview 中可取得 path 屬性)。
+
+透過 window.pywebview.api.scan_file(path) 呼叫 Python 後端。
+
+實作非同步 (Promise) 等待，期間在 UI 顯示 Loading 動畫。
+
+結果渲染：Python 回傳 JSON 後，透過 JS 更新「結果區」的 DOM 元素。
+
+Phase 4: 邊角案例處理與優化 (Edge Cases & Optimization)
+目標： 確保軟體在真實世界的嚴苛條件下不會崩潰。
+
+錯誤處理 (Error Handling)：若使用者傳入損毀的圖片或非圖片檔案，Python 端需捕捉 Exception，並透過 pywebview 回傳友善的錯誤訊息給前端。
+
+效能優化：處理超高解析度 TIFF 檔時，先在 OpenCV 進行等比例縮小 (Resize) 再交給 zxing-cpp，可避免記憶體溢位並大幅提升速度。
+
+多執行緒處理：若掃描大型檔案會導致 pywebview UI 卡頓，需在 Python 端將掃描任務丟入 Thread Pool，掃描完成後再回調 (Callback) 通知前端。
+
+Phase 5: 跨平台打包發布 (Packaging)
+目標： 將原始碼編譯為使用者點擊即可執行的獨立檔案。
+
+PyInstaller 設定 (Windows)：
+
+編寫 build.spec 檔案。
+
+設定 --noconsole 隱藏終端機黑畫面。
+
+確保 HTML/CSS/JS 資料夾 (Assets) 透過 --add-data 正確打包進 .exe 中。
+
+特別注意處理 OpenCV 與 zxing-cpp 的 DLL 相依性。
+
+PyInstaller 設定 (macOS)：
+
+打包為 .app bundle。
+
+處理 macOS 的隱私權限 (如果未來需要呼叫視訊鏡頭，需在 Info.plist 加入 NSCameraUsageDescription，若僅讀取本地圖片則免)。

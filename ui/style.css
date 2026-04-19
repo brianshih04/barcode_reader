@@ -1,0 +1,241 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #1e1e2e;
+    --surface: #2a2a3c;
+    --border: #3a3a50;
+    --text: #e0e0e8;
+    --text-dim: #8888a0;
+    --accent: #7c6ef0;
+    --accent-hover: #9580ff;
+    --success: #50fa7b;
+    --error: #ff5555;
+    --warning: #f1fa8c;
+}
+
+body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* 標題列 */
+#titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 36px;
+    padding: 0 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.title-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.title-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.title-buttons button {
+    width: 28px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.title-buttons button:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+#btn-close:hover {
+    background: var(--error);
+    color: #fff;
+}
+
+/* 主內容 */
+#main-content {
+    padding: 20px 24px;
+    height: calc(100vh - 36px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Drop Zone */
+#drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+}
+
+#drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(124, 110, 240, 0.08);
+}
+
+#drop-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+#drop-text {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+#drop-sub-text {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+}
+
+#btn-choose {
+    padding: 8px 24px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#btn-choose:hover {
+    background: var(--accent-hover);
+}
+
+#btn-choose:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 進階設定 */
+#settings-panel {
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+#settings-panel summary {
+    cursor: pointer;
+    padding: 6px 0;
+}
+
+#settings-panel summary:hover {
+    color: var(--text);
+}
+
+.settings-content {
+    padding: 8px 0 0;
+}
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+}
+
+/* 狀態列 */
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+#status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-idle { background: var(--text-dim); }
+.status-scanning { background: var(--warning); animation: pulse 0.8s infinite; }
+.status-success { background: var(--success); }
+.status-error { background: var(--error); }
+.status-no-barcode { background: var(--warning); }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+#status-text { flex: 1; }
+#status-time { color: var(--text-dim); font-size: 12px; }
+
+/* 結果表格 */
+.hidden { display: none !important; }
+
+#results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+#results-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+}
+
+#results-table th:first-child { border-radius: 6px 0 0 0; }
+#results-table th:last-child { border-radius: 0 6px 0 0; }
+
+#results-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.btn-copy {
+    padding: 4px 12px;
+    background: var(--surface);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.btn-copy:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.btn-copy.copied {
+    background: var(--success);
+    color: var(--bg);
+    border-color: var(--success);
+}
