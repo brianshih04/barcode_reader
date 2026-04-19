@@ -15,8 +15,14 @@ import zxingcpp
 
 # 支援的圖片副檔名
 SUPPORTED_EXTENSIONS: set[str] = {
-    ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif",
-    ".webp", ".avif",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".tiff",
+    ".tif",
+    ".webp",
+    ".avif",
 }
 
 # 需要透過 Pillow 讀取的格式 (OpenCV 不原生支援)
@@ -130,19 +136,67 @@ class ScannerEngine:
         ):
             ScannerEngine._add_unique(bc, seen, all_results)
 
-        # Pass 2: 全圖 2x 放大掃描 (捕捉微小條碼)
         h, w = image.shape[:2]
-        if min(h, w) < 1500:
-            img2x = cv2.resize(image, (w * 2, h * 2), interpolation=cv2.INTER_LINEAR)
+        min_dim = min(h, w)
+
+        # Pass 2: 放大掃描 (捕捉微小條碼)
+        if min_dim < 1500:
+            scale = 4 if min_dim < 500 else 2
+            interpolation = cv2.INTER_CUBIC if scale >= 3 else cv2.INTER_LINEAR
+            img_up = cv2.resize(
+                image, (w * scale, h * scale), interpolation=interpolation
+            )
             for bc in zxingcpp.read_barcodes(
-                img2x, try_rotate=True, try_downscale=False, try_invert=True
+                img_up, try_rotate=True, try_downscale=False, try_invert=True
             ):
                 ScannerEngine._add_unique(bc, seen, all_results)
 
         # Pass 3: 形態學區域偵測 → 裁切 + 5x 放大掃描
         ScannerEngine._scan_morphology_regions(image, seen, all_results)
 
+        # Pass 4: 二值化策略 (破解浮水印 / 低對比 / 低解析度沾黏)
+        ScannerEngine._scan_binarized(image, seen, all_results)
+
         return all_results
+
+    @staticmethod
+    def _scan_binarized(
+        image: np.ndarray,
+        seen: set[tuple[str, str]],
+        results: list[dict],
+    ) -> None:
+        """多種二值化策略掃描：固定閥值 + OTSU + 自適應 + 高倍率放大，用於破解浮水印、低解析度等干擾。"""
+        h, w = image.shape[:2]
+        min_dim = min(h, w)
+        otsu_flag = cv2.THRESH_BINARY + cv2.THRESH_OTSU
+
+        binarized_images: list[np.ndarray] = [
+            cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)[1],
+            cv2.threshold(image, 0, 255, otsu_flag)[1],
+            cv2.adaptiveThreshold(
+                image,
+                255,
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY,
+                15,
+                5,
+            ),
+        ]
+
+        for bin_img in binarized_images:
+            for bc in zxingcpp.read_barcodes(
+                bin_img, try_rotate=True, try_downscale=True, try_invert=True
+            ):
+                ScannerEngine._add_unique(bc, seen, results)
+
+        if min_dim < 500:
+            img4x = cv2.resize(image, (w * 4, h * 4), interpolation=cv2.INTER_CUBIC)
+            for t in (120, 140, 160):
+                bin_img = cv2.threshold(img4x, t, 255, cv2.THRESH_BINARY)[1]
+                for bc in zxingcpp.read_barcodes(
+                    bin_img, try_rotate=True, try_downscale=True, try_invert=True
+                ):
+                    ScannerEngine._add_unique(bc, seen, results)
 
     @staticmethod
     def _scan_morphology_regions(
