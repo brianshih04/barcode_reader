@@ -1,65 +1,77 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Barcode Reader</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <!-- 自訂標題列 -->
     <div id="titlebar" class="pywebview-drag-region">
-        <span class="title-text">Barcode Reader</span>
-        <div class="title-buttons">
-            <button id="btn-minimize" title="最小化">&#x2014;</button>
-            <button id="btn-close" title="關閉">&#x2715;</button>
-        </div>
+      <span class="title-text">Barcode Reader</span>
+      <div class="title-buttons">
+        <button id="btn-minimize" title="最小化">&#x2014;</button>
+        <button id="btn-close" title="關閉">&#x2715;</button>
+      </div>
     </div>
 
     <!-- 主內容 -->
     <div id="main-content">
-        <!-- 操作區：Drop Zone -->
-        <div id="drop-zone">
-            <div id="drop-icon">&#128194;</div>
-            <p id="drop-text">拖曳圖片至此 (JPG/PNG/BMP/TIFF/WebP/AVIF)</p>
-            <p id="drop-sub-text">或</p>
-            <button id="btn-choose">點擊選擇檔案</button>
-        </div>
+      <!-- 操作區：Drop Zone -->
+      <div id="drop-zone">
+        <div id="drop-icon">&#128194;</div>
+        <p id="drop-text">拖曳圖片至此 (JPG/PNG/BMP/TIFF/WebP/AVIF)</p>
+        <p id="drop-sub-text">或</p>
+        <button id="btn-choose">點擊選擇檔案</button>
+      </div>
 
-        <!-- 進階設定面板 -->
-        <details id="settings-panel">
-            <summary>進階設定</summary>
-            <div class="settings-content">
-                <label class="toggle-row">
-                    <span>自動影像強化</span>
-                    <input type="checkbox" id="chk-enhance">
-                </label>
-            </div>
-        </details>
-
-        <!-- 狀態指示器 -->
-        <div id="status-bar">
-            <span id="status-indicator" class="status-idle"></span>
-            <span id="status-text">等待輸入</span>
-            <span id="status-time"></span>
+      <!-- 進階設定面板 -->
+      <details id="settings-panel">
+        <summary>進階設定</summary>
+        <div class="settings-content">
+          <label class="toggle-row">
+            <span>自動影像強化</span>
+            <input type="checkbox" id="chk-enhance" />
+          </label>
+          <label class="toggle-row">
+            <span>掃描模式</span>
+            <select id="sel-mode">
+              <option value="fast">快速</option>
+              <option value="normal">標準</option>
+              <option value="deep" selected>深度</option>
+            </select>
+          </label>
+          <label class="toggle-row">
+            <span>條碼格式</span>
+            <select id="sel-formats"></select>
+          </label>
         </div>
+      </details>
 
-        <!-- 結果區 -->
-        <div id="results-panel" class="hidden">
-            <table id="results-table">
-                <thead>
-                    <tr>
-                        <th>頁數</th>
-                        <th>類型</th>
-                        <th>內容</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="results-body"></tbody>
-            </table>
-        </div>
+      <!-- 狀態指示器 -->
+      <div id="status-bar">
+        <span id="status-indicator" class="status-idle"></span>
+        <span id="status-text">等待輸入</span>
+        <span id="status-time"></span>
+      </div>
+
+      <!-- 結果區 -->
+      <div id="results-panel" class="hidden">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>頁數</th>
+              <th>類型</th>
+              <th>內容</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
     </div>
 
     <script src="script.js"></script>
-</body>
+  </body>
 </html>

@@ -22,10 +22,26 @@ class Api:
     def set_window(self, window: webview.Window) -> None:
         self._window = window
 
-    def scan_file(self, file_path: str) -> str:
+    def scan_file(
+        self,
+        file_path: str,
+        enable_enhance: bool = False,
+        scan_mode: str = "deep",
+        formats: str | None = None,
+    ) -> str:
         """掃描指定圖片檔案，回傳 JSON 結果。自動在背景執行緒中執行。"""
-        result = self._engine.scan_file(file_path)
+        fmt_list = json.loads(formats) if formats else None
+        result = self._engine.scan_file(
+            file_path,
+            enable_enhance=enable_enhance,
+            scan_mode=scan_mode,
+            formats=fmt_list,
+        )
         return json.dumps(result, ensure_ascii=False)
+
+    def get_formats(self) -> str:
+        """回傳可用的條碼格式清單 JSON。"""
+        return json.dumps(self._engine.available_formats(), ensure_ascii=False)
 
     def open_file_dialog(self) -> str:
         """開啟原生檔案選擇對話框，回傳選取的路徑 JSON。"""
@@ -56,7 +72,28 @@ def _on_drop(api: Api, event: dict) -> None:
     if not file_path:
         return
 
-    result_json = api.scan_file(file_path)
+    settings = {"enhance": False, "mode": "deep", "formats": None}
+    if api._window:
+        js = (
+            "JSON.stringify({"
+            "e:document.getElementById('chk-enhance').checked,"
+            "m:document.getElementById('sel-mode').value,"
+            "f:document.getElementById('sel-formats').value"
+            "})"
+        )
+        raw = api._window.evaluate_js(js)
+        if raw and isinstance(raw, str):
+            settings = json.loads(raw)
+
+    fmt_raw = settings.get("f")
+    fmt_json = json.dumps(json.loads(fmt_raw)) if fmt_raw else None
+
+    result_json = api.scan_file(
+        file_path,
+        enable_enhance=settings.get("e", False),
+        scan_mode=settings.get("m", "deep"),
+        formats=fmt_json,
+    )
     if api._window:
         api._window.evaluate_js(f"onScanResult({result_json})")
 

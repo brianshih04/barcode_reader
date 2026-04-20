@@ -6,6 +6,31 @@
 
 ---
 
+## [1.2.0] - 2026-04-20
+
+### 變更
+
+- **掃描引擎重構** (`engine.py`)
+  - Pass 1 改為多 Binarizer 輪替（LocalAverage → GlobalHistogram → FixedThreshold），取代手動二值化
+  - 新增 `scan_mode` 參數：`fast`（僅全圖）、`normal`（全圖+放大）、`deep`（全部策略）
+  - 新增 `formats` 參數：限制搜尋的條碼格式（如 QRCode、EAN13），縮小搜尋空間
+  - 新增 `available_formats()` 方法：回傳可用的格式清單供 UI 使用
+  - 新增 `_parse_formats()` 輔助方法：字串列表 → `zxingcpp.BarcodeFormats`
+  - 補齊型別標註（`barcode: zxingcpp.Barcode` 等）
+
+- **API 層** (`app.py`)
+  - `scan_file()` 新增 `enable_enhance`、`scan_mode`、`formats` 參數傳遞
+  - 修復 `enable_enhance` checkbox 狀態未傳遞到引擎的 bug
+  - 新增 `get_formats()` API：供前端取得條碼格式清單
+  - 拖放事件現在會讀取目前 UI 設定（掃描模式、格式篩選、影像強化）
+
+- **前端介面** (`ui/`)
+  - 進階設定面板新增「掃描模式」下拉選單（快速 / 標準 / 深度）
+  - 進階設定面板新增「條碼格式」下拉選單（動態從後端載入）
+  - 新增 `<select>` 元件的深色主題樣式
+
+---
+
 ## [1.1.0] - 2026-04-19
 
 ### 變更
