@@ -31,10 +31,14 @@ document.addEventListener("pywebviewready", async () => {
     window.pywebview.api.minimize(),
   );
   elements.btnClose.addEventListener("click", () =>
-    window.pywebview.api.close(),
+    window.pywebview.api.close_window(),
   );
   setupDragDrop();
-  await populateFormats();
+  try {
+    await populateFormats();
+  } catch (e) {
+    console.error("populateFormats failed:", e);
+  }
 });
 
 // ===== 拖放 (前端視覺回饋，實際路徑由 Python DOMEventHandler 處理) =====
@@ -46,9 +50,18 @@ function setupDragDrop() {
   elements.dropZone.addEventListener("dragleave", () => {
     elements.dropZone.classList.remove("drag-over");
   });
-  elements.dropZone.addEventListener("drop", () => {
+  elements.dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+  elements.dropZone.addEventListener("drop", async (e) => {
+    e.preventDefault();
     elements.dropZone.classList.remove("drag-over");
-    // 實際掃描由 Python 端 DOMEventHandler 觸發 → 呼叫 onScanResult()
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const path = files[0].pywebviewFullPath;
+    if (path) {
+      await startScan(path);
+    }
   });
 }
 

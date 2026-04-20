@@ -1,13 +1,12 @@
 """
 Barcode Reader — 應用程式進入點
 
-負責定義 pywebview API 類別、拖放事件處理、視窗建立與啟動。
+負責定義 pywebview API 類別、視窗建立與啟動。
 """
 
 import json
 import sys
 import webview
-from webview.dom import DOMEventHandler
 
 from engine import ScannerEngine
 
@@ -57,62 +56,9 @@ class Api:
         if self._window:
             self._window.minimize()
 
-    def close(self) -> None:
+    def close_window(self) -> None:
         if self._window:
             self._window.destroy()
-
-
-def _on_drop(api: Api, event: dict) -> None:
-    """Python 端處理拖放事件，取得完整檔案路徑後觸發掃描。"""
-    files = event.get("dataTransfer", {}).get("files", [])
-    if not files:
-        return
-
-    file_path = files[0].get("pywebviewFullPath")
-    if not file_path:
-        return
-
-    settings = {"enhance": False, "mode": "deep", "formats": None}
-    if api._window:
-        js = (
-            "JSON.stringify({"
-            "e:document.getElementById('chk-enhance').checked,"
-            "m:document.getElementById('sel-mode').value,"
-            "f:document.getElementById('sel-formats').value"
-            "})"
-        )
-        raw = api._window.evaluate_js(js)
-        if raw and isinstance(raw, str):
-            settings = json.loads(raw)
-
-    fmt_raw = settings.get("f")
-    fmt_json = json.dumps(json.loads(fmt_raw)) if fmt_raw else None
-
-    result_json = api.scan_file(
-        file_path,
-        enable_enhance=settings.get("e", False),
-        scan_mode=settings.get("m", "deep"),
-        formats=fmt_json,
-    )
-    if api._window:
-        api._window.evaluate_js(f"onScanResult({result_json})")
-
-
-def _on_drag_over(event: dict) -> None:
-    """攔截 dragover 避免瀏覽器預設行為。"""
-    pass
-
-
-def bind(window: webview.Window, api: Api) -> None:
-    """視窗載入後的綁定回呼：注入 API 並註冊拖放事件。"""
-    api.set_window(window)
-
-    window.dom.document.events.dragover += DOMEventHandler(
-        _on_drag_over, True, True
-    )
-    window.dom.document.events.drop += DOMEventHandler(
-        lambda e: _on_drop(api, e), True, True
-    )
 
 
 def main() -> None:
@@ -128,8 +74,9 @@ def main() -> None:
         frameless=True,
         easy_drag=True,
     )
+    api.set_window(window)
 
-    webview.start(bind, (window, api), debug=("--debug" in sys.argv))
+    webview.start(debug=("--debug" in sys.argv))
 
 
 if __name__ == "__main__":
