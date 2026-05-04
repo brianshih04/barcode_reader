@@ -7,17 +7,11 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- 自訂標題列 -->
-    <div id="titlebar" class="pywebview-drag-region">
-      <span class="title-text">Barcode Reader</span>
-      <div class="title-buttons">
-        <button id="btn-minimize" title="最小化">&#x2014;</button>
-        <button id="btn-close" title="關閉">&#x2715;</button>
-      </div>
-    </div>
-
-    <!-- 主內容 -->
     <div id="main-content">
+      <!-- 隱藏的 file input -->
+      <input type="file" id="file-input" hidden
+        accept=".jpg,.jpeg,.png,.bmp,.tiff,.tif,.webp,.avif" />
+
       <!-- 操作區：Drop Zone -->
       <div id="drop-zone">
         <div id="drop-icon">&#128194;</div>
@@ -31,7 +25,7 @@
         <summary>進階設定</summary>
         <div class="settings-content">
           <label class="toggle-row">
-            <span>自動影像強化</span>
+            <span>優先影像強化</span>
             <input type="checkbox" id="chk-enhance" />
           </label>
           <label class="toggle-row">

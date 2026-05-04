@@ -6,6 +6,42 @@
 
 ---
 
+## [1.3.0] - 2026-05-04
+
+### 新增
+
+- **條件式影像強化重試** (`engine.py`)
+  - 深度掃描模式下，若未偵測到條碼，或低解析度寬圖只找到少量結果，會自動以 CLAHE 強化後重掃
+  - 新增跨輪去重邏輯，合併原圖掃描與強化重試的新結果
+  - 回傳 `enhanced_retry_pages`，標示哪些頁面靠影像強化補到新結果
+
+- **低解析度 1D ROI 補救掃描** (`engine.py`)
+  - 針對中低解析度且結果較少的圖片，使用 OpenCV Sobel 梯度與形態學閉運算找出水平條碼候選區
+  - 對候選區裁切後執行多倍率放大、CLAHE、OTSU 與固定閥值重掃
+  - 加入 1D 條碼合理性檢查，降低過短 ITF 等假陽性
+
+- **前端相容性調整** (`ui/`, `app.py`)
+  - 前端統一使用 HTML File API / FileReader 將圖片轉為 base64，再由 Python 暫存掃描
+  - 新增 50 MB 檔案大小保護，避免大檔 base64 造成過高記憶體壓力
+  - `scan_base64()` 錯誤回傳補齊 `results`、`file_name`、`total_pages`、`time_taken_ms`
+
+### 修正
+
+- 修正預設「全部格式」使用 `zxingcpp.BarcodeFormats()` 空建構子導致掃描失敗的問題，改為 `BarcodeFormats(BarcodeFormat.All)`
+- 修正逐頁掃描例外被吞掉後誤報 `no_barcode` 的問題；現在會回傳 `page_errors`，若所有頁面失敗則回傳 `error`
+- 修正無效格式篩選靜默退回全部格式的問題；現在會回傳明確錯誤
+- README 同步目前非無邊框視窗與新掃描策略描述
+
+### 測試結果
+
+- `3.webp`：深度模式由 2 個提升為 3 個，補到右側 `EAN13: 8690123456789`
+- `58.jpg`：深度模式由 4 個提升為 6 個，新增 `EAN13: 9771473968012` 與 `DataBarStk: (01)24012345678905`
+- `barcode-and-qr-code-collection-vector-6406064.avif`：維持 11 個
+- `barcode-sample-printing-sevice.jpg`：維持 9 個
+- `_debug_crop.png`：仍無法辨識，裁切過小且條碼資訊不足
+
+---
+
 ## [1.2.0] - 2026-04-20
 
 ### 變更

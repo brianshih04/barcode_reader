@@ -26,61 +26,13 @@ body {
   background: var(--bg);
   color: var(--text);
   height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
   user-select: none;
-}
-
-/* 標題列 */
-#titlebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 36px;
-  padding: 0 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.title-text {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dim);
-}
-
-.title-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.title-buttons button {
-  width: 28px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 13px;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.title-buttons button:hover {
-  background: var(--border);
-  color: var(--text);
-}
-
-#btn-close:hover {
-  background: var(--error);
-  color: #fff;
 }
 
 /* 主內容 */
 #main-content {
-  padding: 20px 24px;
-  height: calc(100vh - 36px);
-  overflow-y: auto;
+  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -216,7 +168,7 @@ body {
 .status-error {
   background: var(--error);
 }
-.status-no-barcode {
+.status-no_barcode {
   background: var(--warning);
 }
 

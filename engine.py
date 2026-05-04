@@ -121,7 +121,7 @@ class ScannerEngine:
         """
         seen: set[tuple[str, str]] = set()
         all_results: list[dict] = []
-        fmt = formats or zxingcpp.BarcodeFormats()
+        fmt = formats or zxingcpp.BarcodeFormats(zxingcpp.BarcodeFormat.All)
 
         # Pass 1: 全圖原圖 + 多 Binarizer 輪替
         for binarizer in BINARIZERS:
@@ -160,7 +160,11 @@ class ScannerEngine:
         # Pass 3: 形態學區域偵測 → 裁切 + 5x 放大掃描
         ScannerEngine._scan_morphology_regions(image, seen, all_results, fmt)
 
-        # Pass 4: 低解析度圖片 4x 放大 + 多閥值二值化 (破解浮水印 / 低對比)
+        # Pass 4: 低解析度 1D 條碼 ROI 掃描
+        if 450 <= min_dim < 900 and len(all_results) < 5:
+            ScannerEngine._scan_linear_regions(image, seen, all_results, formats)
+
+        # Pass 5: 低解析度圖片 4x 放大 + 多閥值二值化 (破解浮水印 / 低對比)
         if min_dim < 500:
             ScannerEngine._scan_upsampled_thresholds(image, seen, all_results, fmt)
 
@@ -237,6 +241,98 @@ class ScannerEngine:
                 ScannerEngine._add_unique(bc, seen, results)
 
     @staticmethod
+    def _scan_linear_regions(
+        image: np.ndarray,
+        seen: set[tuple[str, str]],
+        results: list[dict],
+        formats: zxingcpp.BarcodeFormats | None,
+    ) -> None:
+        """針對低解析度 1D 條碼，切出候選區域後多倍率掃描。"""
+        h, w = image.shape[:2]
+        linear_formats = formats or zxingcpp.BarcodeFormats(
+            zxingcpp.BarcodeFormat.AllLinear
+        )
+
+        grad_x = cv2.Sobel(image, cv2.CV_32F, 1, 0, ksize=-1)
+        grad_y = cv2.Sobel(image, cv2.CV_32F, 0, 1, ksize=-1)
+        grad = cv2.subtract(grad_x, grad_y)
+        grad = cv2.convertScaleAbs(grad)
+        grad = cv2.GaussianBlur(grad, (3, 3), 0)
+        _, binary = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        for kernel_size in ((21, 7), (31, 9)):
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, kernel_size)
+            closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+            closed = cv2.erode(closed, None, iterations=1)
+            closed = cv2.dilate(closed, None, iterations=1)
+
+            contours, _ = cv2.findContours(
+                closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+
+            for cnt in sorted(contours, key=cv2.contourArea, reverse=True)[:80]:
+                x, y, cw, ch = cv2.boundingRect(cnt)
+                if cw * ch < 500 or cw < 30 or ch < 8 or cw / ch < 1.2:
+                    continue
+
+                pad = max(8, int(min(cw, ch) * 0.25))
+                x1, y1 = max(0, x - pad), max(0, y - pad)
+                x2, y2 = min(w, x + cw + pad), min(h, y + ch + pad)
+                crop = image[y1:y2, x1:x2]
+
+                for variant in ScannerEngine._linear_crop_variants(crop):
+                    for binarizer in BINARIZERS:
+                        for bc in zxingcpp.read_barcodes(
+                            variant,
+                            formats=linear_formats,
+                            try_rotate=True,
+                            try_downscale=False,
+                            try_invert=True,
+                            binarizer=binarizer,
+                        ):
+                            if ScannerEngine._is_plausible_linear_result(bc):
+                                ScannerEngine._add_unique(bc, seen, results)
+
+    @staticmethod
+    def _linear_crop_variants(crop: np.ndarray) -> list[np.ndarray]:
+        variants: list[np.ndarray] = []
+        for sx, sy in ((3, 3), (4, 4), (6, 3)):
+            up = cv2.resize(
+                crop,
+                (crop.shape[1] * sx, crop.shape[0] * sy),
+                interpolation=cv2.INTER_CUBIC,
+            )
+            variants.append(up)
+            variants.append(
+                cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(up)
+            )
+            variants.append(cv2.threshold(up, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1])
+            variants.append(cv2.threshold(up, 120, 255, cv2.THRESH_BINARY)[1])
+        return variants
+
+    @staticmethod
+    def _is_plausible_linear_result(barcode: zxingcpp.Barcode) -> bool:
+        fmt = barcode.format.name
+        text = barcode.text
+        digits = text.isdigit()
+
+        if fmt == "EAN13":
+            return len(text) == 13 and digits
+        if fmt == "EAN8":
+            return len(text) == 8 and digits
+        if fmt == "UPCA":
+            return len(text) == 12 and digits
+        if fmt == "UPCE":
+            return len(text) in (6, 8) and digits
+        if fmt in ("ITF", "ITF14"):
+            return len(text) >= 6 and digits
+        if fmt.startswith("DataBar"):
+            return len(text) >= 8
+        if fmt in ("Code128", "Code39", "Code93", "Codabar"):
+            return len(text.strip()) >= 3
+        return True
+
+    @staticmethod
     def _add_unique(
         barcode: zxingcpp.Barcode,
         seen: set[tuple[str, str]],
@@ -284,7 +380,10 @@ class ScannerEngine:
             標準化的掃描結果 dict。
         """
         start_time = time.perf_counter()
-        zxing_fmts = self._parse_formats(formats)
+        try:
+            zxing_fmts = self._parse_formats(formats)
+        except ValueError as e:
+            return self._error_result(str(e), file_path, start_time)
 
         try:
             pages = self.load_image(file_path)
@@ -294,37 +393,117 @@ class ScannerEngine:
             return self._error_result(f"圖片讀取失敗: {e}", file_path, start_time)
 
         all_results: list[dict] = []
+        page_errors: list[dict] = []
+        seen_results: set[tuple[int, str, str]] = set()
+        enhanced_retry_pages: list[int] = []
         for page_idx, page_img in enumerate(pages):
+            page_num = page_idx + 1
+            page_result_count = len(all_results)
             try:
                 processed = self.preprocess(page_img, enable_enhance=enable_enhance)
                 decoded = self.decode(processed, scan_mode=scan_mode, formats=zxing_fmts)
-            except Exception:
-                continue
+            except Exception as e:
+                decoded = []
+                page_errors.append({"page": page_num, "message": str(e)})
 
-            for item in decoded:
-                item["page"] = page_idx + 1
-                all_results.append(item)
+            self._append_page_results(decoded, page_num, seen_results, all_results)
+            normal_result_count = len(all_results) - page_result_count
+
+            if self._should_retry_enhanced(
+                page_img, normal_result_count, enable_enhance, scan_mode
+            ):
+                try:
+                    enhanced = self.preprocess(page_img, enable_enhance=True)
+                    enhanced_decoded = self.decode(
+                        enhanced, scan_mode=scan_mode, formats=zxing_fmts
+                    )
+                except Exception:
+                    enhanced_decoded = []
+
+                before_retry_count = len(all_results)
+                self._append_page_results(
+                    enhanced_decoded, page_num, seen_results, all_results
+                )
+                if len(all_results) > before_retry_count:
+                    enhanced_retry_pages.append(page_num)
+
+            if len(all_results) > page_result_count:
+                page_errors = [
+                    err for err in page_errors if err.get("page") != page_num
+                ]
 
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
+        if page_errors and len(page_errors) == len(pages):
+            return {
+                "status": "error",
+                "message": "所有頁面掃描失敗: "
+                + "; ".join(
+                    f"第 {err['page']} 頁: {err['message']}" for err in page_errors
+                ),
+                "results": [],
+                "file_name": Path(file_path).name,
+                "total_pages": len(pages),
+                "time_taken_ms": elapsed_ms,
+                "page_errors": page_errors,
+            }
 
-        return {
+        result = {
             "status": "success" if all_results else "no_barcode",
             "results": all_results,
             "file_name": Path(file_path).name,
             "total_pages": len(pages),
             "time_taken_ms": elapsed_ms,
         }
+        if page_errors:
+            result["page_errors"] = page_errors
+        if enhanced_retry_pages:
+            result["enhanced_retry_pages"] = enhanced_retry_pages
+        return result
+
+    @staticmethod
+    def _append_page_results(
+        decoded: list[dict],
+        page_num: int,
+        seen: set[tuple[int, str, str]],
+        results: list[dict],
+    ) -> None:
+        """加入單頁結果，合併原圖掃描與強化重試的重複項目。"""
+        for item in decoded:
+            key = (page_num, item["format"], item["text"])
+            if key in seen:
+                continue
+            seen.add(key)
+            item["page"] = page_num
+            results.append(item)
+
+    @staticmethod
+    def _should_retry_enhanced(
+        image: np.ndarray,
+        found_count: int,
+        enable_enhance: bool,
+        scan_mode: ScanMode,
+    ) -> bool:
+        """決定是否用 CLAHE 強化重試，避免 deep 模式無條件加倍耗時。"""
+        if enable_enhance or scan_mode != "deep":
+            return False
+        if found_count == 0:
+            return True
+
+        h, w = image.shape[:2]
+        aspect_ratio = max(h, w) / min(h, w)
+        return min(h, w) < 500 and aspect_ratio > 2.5 and found_count < 3
 
     @staticmethod
     def _parse_formats(formats: list[str] | None) -> zxingcpp.BarcodeFormats | None:
         """將格式名稱字串列表轉為 zxingcpp.BarcodeFormats。"""
         if not formats:
             return None
-        try:
-            fmt_list = [getattr(zxingcpp.BarcodeFormat, f) for f in formats]
-            return zxingcpp.BarcodeFormats(fmt_list)
-        except AttributeError:
-            return None
+        invalid = [f for f in formats if not hasattr(zxingcpp.BarcodeFormat, f)]
+        if invalid:
+            raise ValueError(f"不支援的條碼格式: {', '.join(invalid)}")
+
+        fmt_list = [getattr(zxingcpp.BarcodeFormat, f) for f in formats]
+        return zxingcpp.BarcodeFormats(fmt_list)
 
     @staticmethod
     def _error_result(message: str, file_path: str, start_time: float) -> dict:
